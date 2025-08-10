@@ -1,9 +1,192 @@
-import { useState } from "react";
+import React from "react";
+import { useState, useEffect } from "react";
 import { HexAlphaColorPicker } from "react-colorful";
 import { motion } from "framer-motion";
 import { FiCopy } from "react-icons/fi";
 
-// HEXA to RGBA
+// ...utility functions (hexToRgba, rgbaToHsla, etc.) remain unchanged
+
+function parseColorInput(type, value) {
+  try {
+    switch (type) {
+      case "HEX":
+        if (/^#?[0-9a-fA-F]{6}$/.test(value)) {
+          return "#" + value.replace("#", "") + "ff";
+        }
+        break;
+      case "HEXA":
+        if (/^#?[0-9a-fA-F]{8}$/.test(value)) {
+          return "#" + value.replace("#", "");
+        }
+        break;
+      case "RGB": {
+        const m = value.match(/rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)/);
+        if (m) {
+          const [r, g, b] = m.slice(1, 4).map(Number);
+          return (
+            "#" +
+            [r, g, b]
+              .map((x) => x.toString(16).padStart(2, "0"))
+              .join("") +
+            "ff"
+          );
+        }
+        break;
+      }
+      case "RGBA": {
+        const m = value.match(
+          /rgba\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3}),\s*(\d*\.?\d+)\)/
+        );
+        if (m) {
+          const [r, g, b, a] = m.slice(1, 5).map(Number);
+          return (
+            "#" +
+            [r, g, b]
+              .map((x) => x.toString(16).padStart(2, "0"))
+              .join("") +
+            Math.round(a * 255)
+              .toString(16)
+              .padStart(2, "0")
+          );
+        }
+        break;
+      }
+      case "HSL": {
+        const m = value.match(
+          /hsl\((\d{1,3}),\s*(\d{1,3})%,\s*(\d{1,3})%\)/
+        );
+        if (m) {
+          let [h, s, l] = m.slice(1, 4).map(Number);
+          // Convert HSL to RGB
+          s /= 100;
+          l /= 100;
+          let c = (1 - Math.abs(2 * l - 1)) * s;
+          let x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+          let m_ = l - c / 2;
+          let r1, g1, b1;
+          if (h < 60) [r1, g1, b1] = [c, x, 0];
+          else if (h < 120) [r1, g1, b1] = [x, c, 0];
+          else if (h < 180) [r1, g1, b1] = [0, c, x];
+          else if (h < 240) [r1, g1, b1] = [0, x, c];
+          else if (h < 300) [r1, g1, b1] = [x, 0, c];
+          else [r1, g1, b1] = [c, 0, x];
+          const r = Math.round((r1 + m_) * 255);
+          const g = Math.round((g1 + m_) * 255);
+          const b = Math.round((b1 + m_) * 255);
+          return (
+            "#" +
+            [r, g, b]
+              .map((x) => x.toString(16).padStart(2, "0"))
+              .join("") +
+            "ff"
+          );
+        }
+        break;
+      }
+      case "HSLA": {
+        const m = value.match(
+          /hsla\((\d{1,3}),\s*(\d{1,3})%,\s*(\d{1,3})%,\s*(\d*\.?\d+)\)/
+        );
+        if (m) {
+          let [h, s, l, a] = m.slice(1, 5).map(Number);
+          s /= 100;
+          l /= 100;
+          let c = (1 - Math.abs(2 * l - 1)) * s;
+          let x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+          let m_ = l - c / 2;
+          let r1, g1, b1;
+          if (h < 60) [r1, g1, b1] = [c, x, 0];
+          else if (h < 120) [r1, g1, b1] = [x, c, 0];
+          else if (h < 180) [r1, g1, b1] = [0, c, x];
+          else if (h < 240) [r1, g1, b1] = [0, x, c];
+          else if (h < 300) [r1, g1, b1] = [x, 0, c];
+          else [r1, g1, b1] = [c, 0, x];
+          const r = Math.round((r1 + m_) * 255);
+          const g = Math.round((g1 + m_) * 255);
+          const b = Math.round((b1 + m_) * 255);
+          return (
+            "#" +
+            [r, g, b]
+              .map((x) => x.toString(16).padStart(2, "0"))
+              .join("") +
+            Math.round(a * 255)
+              .toString(16)
+              .padStart(2, "0")
+          );
+        }
+        break;
+      }
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function ColorPreview({ color }) {
+  return (
+    <motion.div
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.5, delay: 0.6 }}
+      className="flex items-center justify-center"
+    >
+      <div
+        className="relative flex items-center justify-center lg:w-36 md:w-28 w-20 lg:h-36 md:h-28 h-20"
+      >
+        <div 
+          className="absolute w-[90%] h-[90%] gap-4 p-2 grid grid-cols-2"
+        >
+          <div
+            className="rounded-lg bg-white"
+            style={{
+              width: "100%",
+              height: "100%",
+              zIndex: 0,
+            }}
+          />
+          <div
+            className="rounded-lg bg-white/60"
+            style={{
+              width: "100%",
+              height: "100%",
+              zIndex: 0,
+            }}
+          />
+          <div
+            className="rounded-lg bg-white/20"
+            style={{
+              width: "100%",
+              height: "100%",
+              zIndex: 0,
+            }}
+          />
+          <div
+            className="rounded-lg bg-black"
+            style={{
+              width: "100%",
+              height: "100%",
+              zIndex: 0,
+            }}
+          />
+        </div>
+        {/* Color preview on top */}
+        <div
+          className="relative rounded-xl"
+          style={{
+            background: color,
+            width: "100%", // slightly smaller than the white circle
+            height: "100%",
+            zIndex: 1,
+          }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
 function hexToRgba(hex) {
   let hexValue = hex.replace("#", "");
   if (hexValue.length === 6) hexValue += "ff";
@@ -14,7 +197,7 @@ function hexToRgba(hex) {
   return { r, g, b, a };
 }
 
-// RGBA to HSLA
+// RGBA to HSLAs
 function rgbaToHsla(r, g, b, a) {
   r /= 255;
   g /= 255;
@@ -82,7 +265,8 @@ function getTailwindBrightness(r, g, b) {
   return "brightness-0";
 }
 
-function ColorInfo({ color }) {
+
+function ColorInfo({ color, setColor }) {
   const { r, g, b, a } = hexToRgba(color);
   const hex = color.slice(0, 7);
   const hexa = color;
@@ -95,30 +279,57 @@ function ColorInfo({ color }) {
   const tailwindColorHex = `bg-[${hex}]`;
   const { c, m, y, k } = rgbaToCmyk(r, g, b);
   const cmyk = `cmyk(${c}%, ${m}%, ${y}%, ${k}%)`;
-  const tailwindBrightness = getTailwindBrightness(r, g, b);
+
+  // Only allow editing for these types for now
+  const editable = [
+    { label: "HEX", value: hex },
+    { label: "HEXA", value: hexa },
+    { label: "RGB", value: rgb },
+    { label: "RGBA", value: rgba },
+    { label: "HSL", value: hsl },
+    { label: "HSLA", value: hsla },
+  ];
+
+  const nonEditable = [
+    { label: "Tailwind", value: tailwindColorHex },
+    { label: "Tailwind-A", value: tailwindColor },
+    { label: "CMYK", value: cmyk },
+  ];
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.4 }}
-      className="grid lg:grid-cols-2 md:grid-cols-2 grid-cols-1 gap-4 w-[80%]"
+      className="grid lg:grid-cols-2 md:grid-cols-2 grid-cols-1 gap-4 w-[100%]"
     >
-      <InfoItem label="HEX" value={hex} />
-      <InfoItem label="HEXA" value={hexa} />
-      <InfoItem label="RGB" value={rgb} />
-      <InfoItem label="RGBA" value={rgba} />
-      <InfoItem label="HSL" value={hsl} />
-      <InfoItem label="HSLA" value={hsla} />
-      <InfoItem label="Tailwind" value={tailwindColorHex} />
-      <InfoItem label="Tailwind-A" value={tailwindColor} />
-      <InfoItem label="CMYK" value={cmyk} />
+      {editable.map((item) => (
+        <InfoItem
+          key={item.label}
+          label={item.label}
+          value={item.value}
+          editable
+          onChange={(val) => {
+            const parsed = parseColorInput(item.label, val);
+            if (parsed) setColor(parsed);
+          }}
+        />
+      ))}
+      {nonEditable.map((item) => (
+        <InfoItem key={item.label} label={item.label} value={item.value} />
+      ))}
     </motion.div>
   );
 }
 
-function InfoItem({ label, value }) {
+function InfoItem({ label, value, editable, onChange }) {
   const [copied, setCopied] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
+
+  // Keep input in sync with value prop
+  React.useEffect(() => {
+    setInputValue(value);
+  }, [value]);
 
   const handleCopy = async () => {
     try {
@@ -130,10 +341,36 @@ function InfoItem({ label, value }) {
     }
   };
 
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value);
+    if (onChange) onChange(e.target.value);
+  };
+
+  const [isEditing, setIsEditing] = useState(false);
+
   return (
     <div className="flex items-center gap-1">
-      <div className="flex justify-between items-center w-[80%] bg-neutral-700 rounded-xl px-3 py-1 font-mono text-lg relative group">
-        <span className="truncate text-sm">{value}</span>
+      <motion.div
+        animate={{
+          border: isEditing ? "2px solid #fff" : "2px solid transparent",
+        }}
+        transition={{ duration: 0.2 }}
+        className={`${
+          editable ? "hover:bg-neutral-700/50" : "hover:bg-neutral-700"
+        } flex justify-between group items-center w-[80%] bg-neutral-700 rounded-lg px-3 py-2 font-mono text-lg relative group`}
+      >
+        {editable ? (
+          <input
+            className="truncate text-sm group bg-transparent outline-none w-full"
+            value={inputValue}
+            onChange={handleInputChange}
+            spellCheck={false}
+            onFocus={() => setIsEditing(true)}
+            onBlur={() => setIsEditing(false)}
+          />
+        ) : (
+          <span className="truncate text-sm">{value}</span>
+        )}
         <button
           onClick={handleCopy}
           className="flex gap-2 text-gray-400 hover:text-white transition-colors"
@@ -147,71 +384,9 @@ function InfoItem({ label, value }) {
           )}
           <FiCopy size={18} />
         </button>
-      </div>
+      </motion.div>
       <span className="text-xs text-gray-400">{label}</span>
     </div>
-  );
-}
-
-function ColorPreview({ color }) {
-  return (
-    <motion.div
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.5, delay: 0.6 }}
-      className="flex items-center justify-center"
-    >
-      <div
-        className="relative flex items-center justify-center lg:w-36 md:w-28 w-20 lg:h-36 md:h-28 h-20"
-      >
-        <div 
-          className="absolute w-[90%] h-[90%] gap-4 p-2 grid grid-cols-2"
-        >
-          <div
-            className="rounded-lg bg-white"
-            style={{
-              width: "100%",
-              height: "100%",
-              zIndex: 0,
-            }}
-          />
-          <div
-            className="rounded-lg bg-white/60"
-            style={{
-              width: "100%",
-              height: "100%",
-              zIndex: 0,
-            }}
-          />
-          <div
-            className="rounded-lg bg-white/20"
-            style={{
-              width: "100%",
-              height: "100%",
-              zIndex: 0,
-            }}
-          />
-          <div
-            className="rounded-lg bg-black"
-            style={{
-              width: "100%",
-              height: "100%",
-              zIndex: 0,
-            }}
-          />
-        </div>
-        {/* Color preview on top */}
-        <div
-          className="relative rounded-xl"
-          style={{
-            background: color,
-            width: "100%", // slightly smaller than the white circle
-            height: "100%",
-            zIndex: 1,
-          }}
-        />
-      </div>
-    </motion.div>
   );
 }
 
@@ -228,7 +403,7 @@ export default function App() {
       >
         <HexAlphaColorPicker color={color} onChange={setColor} style={{ width: "100%", height: 400 }} />
         <div className="w-full flex gap-2 justify-between items-start">
-          <ColorInfo color={color} />
+          <ColorInfo color={color} setColor={setColor} />
           <ColorPreview color={color} />
         </div>
       </motion.div>
